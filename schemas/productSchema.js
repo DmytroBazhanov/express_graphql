@@ -6,11 +6,14 @@ export const productSchema = buildSchema(`
         human(id: String!): Human
     }
 
+    type Mutation {
+        createUser(id: String!, name: String!): Human
+    }
+
     type Human {
         id: String
         name: String
     }
-
 `);
 
 export const root = {
@@ -33,6 +36,26 @@ export const root = {
             .then((human) => {
                 connection.end();
                 return { id: root.id(human.id), name: root.name(human.name) };
+            })
+            .catch((error) => console.log(error));
+    },
+    createUser: async (argunments) => {
+        const { id, name } = argunments;
+        const connection = openConnection();
+
+        connection.connect();
+
+        return new Promise((resolve, reject) => {
+            connection.query(
+                `INSERT INTO test.myTest (id, name) VALUES ('${id}', '${name}')`,
+                (err, rows) => {
+                    if (err) reject(err);
+                    resolve(rows);
+                }
+            );
+        })
+            .then(() => {
+                return { id, name };
             })
             .catch((error) => console.log(error));
     },
