@@ -1,5 +1,5 @@
 import { buildSchema } from "graphql";
-import { openConnection } from "../database.js";
+import { openConnection, makeQuery } from "../database.js";
 
 export const productSchema = buildSchema(`
     type Query {
@@ -21,42 +21,28 @@ export const root = {
     name: (name) => name,
     human: async (argunments) => {
         const { id } = argunments;
-        const connection = openConnection();
 
-        connection.connect();
-
-        return new Promise((resolve, reject) => {
-            connection.query("SELECT * FROM test.myTest", (err, rows) => {
+        return makeQuery(
+            `SELECT * FROM test.myTest WHERE id='${id}'`,
+            (err, rows, resolve, reject) => {
                 if (err) reject(err);
-
-                const human = rows.find((human) => human.id === id);
-                if (rows) resolve(human);
-            });
-        })
-            .then((human) => {
-                connection.end();
-                return { id: root.id(human.id), name: root.name(human.name) };
-            })
-            .catch((error) => console.log(error));
+                resolve(rows[0]);
+            }
+        ).then((human) => {
+            return { id: root.id(human.id), name: root.name(human.name) };
+        });
     },
     createUser: async (argunments) => {
         const { id, name } = argunments;
-        const connection = openConnection();
 
-        connection.connect();
-
-        return new Promise((resolve, reject) => {
-            connection.query(
-                `INSERT INTO test.myTest (id, name) VALUES ('${id}', '${name}')`,
-                (err, rows) => {
-                    if (err) reject(err);
-                    resolve(rows);
-                }
-            );
-        })
-            .then(() => {
-                return { id, name };
-            })
-            .catch((error) => console.log(error));
+        return makeQuery(
+            `INSERT INTO test.myTest (id, name) VALUES ('${id}', '${name}')`,
+            (err, rows, resolve, reject) => {
+                if (err) reject(err);
+                resolve(rows);
+            }
+        ).then(() => {
+            return { id, name };
+        });
     },
 };
