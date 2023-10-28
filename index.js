@@ -8,6 +8,15 @@ import express from "express";
 const app = express();
 const port = 8000;
 
+const graphqlErrorFormat = (error) => {
+    return {
+        message: error.message,
+        code: error.code,
+        locations: error.locations,
+        path: error.path,
+    };
+};
+
 app.use(cors());
 
 app.use(
@@ -16,6 +25,7 @@ app.use(
         schema: productSchema,
         rootValue: root,
         graphiql: true,
+        customFormatErrorFn: graphqlErrorFormat,
     })
 );
 

@@ -1,48 +1,171 @@
 import { buildSchema } from "graphql";
-import { openConnection, makeQuery } from "../database.js";
+import { makeQuery } from "../database.js";
+import dateToString from "../utils/dateToString.js";
+
+// type Mutation {
+//     createUser(id: String!, name: String!): Human
+// }
 
 export const productSchema = buildSchema(`
     type Query {
-        human(id: String!): Human
+        book(id: String!): Book
+        books: [Book]
+        reader(id: String!): Reader
+        reservedBook(bookID: String!): [ReservedBooks]
     }
 
     type Mutation {
-        createUser(id: String!, name: String!): Human
+        readerMutation(id: String!, input: ReaderInput!): Reader
+        addBookReservation(readerID: String!, bookID: String!, date: String!): ReservedBooks
     }
 
-    type Human {
+    type Book {
         id: String
         name: String
+        author: String
+        tags: String
+        text: String
+    }
+
+    type Reader {
+        id: String
+        name: String
+        lastname: String
+    }
+
+    input ReaderInput {
+        name: String
+        lastname: String
+    }
+
+    type ReservedBooks {
+        book: Book
+        reader: Reader
+        reservationEndDate: String
     }
 `);
 
 export const root = {
-    id: (id) => id,
-    name: (name) => name,
-    human: async (argunments) => {
-        const { id } = argunments;
+    book: async (args) => {
+        const { id, fields } = args;
+
+        const requestedBookFields = fields ? fields.join(", ") : `*`;
+
+        if (id) {
+            return makeQuery(
+                `SELECT ${requestedBookFields} FROM test.book WHERE id='${id}'`,
+                (error, rows, resolve, reject) => {
+                    if (error) reject(error);
+                    resolve(rows[0]);
+                }
+            ).then((book) => book);
+        }
+    },
+
+    books: async (args) => {
+        return makeQuery(`SELECT * FROM test.book`, (error, rows, resolve, reject) => {
+            if (error) reject(error);
+            resolve(rows);
+        }).then((books) => books);
+    },
+
+    reader: async (args) => {
+        const { id } = args;
+
+        if (id) {
+            return makeQuery(
+                `SELECT * FROM test.reader WHERE id='${id}'`,
+                (error, rows, resolve, reject) => {
+                    if (error) reject(error);
+                    resolve(rows[0]);
+                }
+            ).then((user) => user);
+        }
+    },
+
+    reservedBook: async (args) => {
+        const { bookID, bookFields } = args;
 
         return makeQuery(
-            `SELECT * FROM test.myTest WHERE id='${id}'`,
-            (err, rows, resolve, reject) => {
-                if (err) reject(err);
-                resolve(rows[0]);
+            `SELECT * FROM test.reservedBooks WHERE bookID='${bookID}'`,
+            async (error, rows, resolve, reject) => {
+                if (error) reject(error);
+
+                const result = rows.map((record) => {
+                    return {
+                        ...record,
+                        reader: null,
+                        book: null,
+                        reservationEndDate: dateToString(new Date(record.reservationEndDate)),
+                    };
+                });
+
+                for (let record of result) {
+                    const reader = await root.reader({ id: record.readerID });
+                    const book = await root.book({ id: record.bookID, fields: bookFields });
+
+                    record.reader = reader;
+                    record.book = book;
+                }
+
+                resolve(result);
             }
-        ).then((human) => {
-            return { id: root.id(human.id), name: root.name(human.name) };
+        ).then((records) => {
+            return records;
         });
     },
-    createUser: async (argunments) => {
-        const { id, name } = argunments;
+
+    addBookReservation: async (args) => {
+        const { readerID, bookID, date } = args;
+
+        const presentReservations = await root.reservedBook({
+            bookID: bookID,
+            bookFields: ["id"],
+        });
+
+        let maxDate = null;
+        presentReservations.forEach((reservation) => {
+            if (reservation.reservationEndDate > maxDate || maxDate === null)
+                maxDate = reservation.reservationEndDate;
+        });
+
+        if (
+            date > Number(new Date(maxDate).getTime()) + 604800000 ||
+            date <= Number(new Date(maxDate).getTime())
+        )
+            throw new Error("Innapropriate date");
+
+        const returnDate = dateToString(new Date(Number(date)));
 
         return makeQuery(
-            `INSERT INTO test.myTest (id, name) VALUES ('${id}', '${name}')`,
-            (err, rows, resolve, reject) => {
-                if (err) reject(err);
-                resolve(rows);
+            `INSERT INTO test.reservedBooks (readerID, bookID, reservationEndDate)
+             VALUES ('${readerID}', '${bookID}', '${returnDate}')`,
+            async (error, rows, resolve, reject) => {
+                if (error) reject(error);
+
+                const reader = await root.reader({ id: readerID });
+                const book = await root.book({ id: bookID });
+
+                resolve({ reader, book, reservationEndDate: returnDate });
             }
-        ).then(() => {
-            return { id, name };
-        });
+        ).then((reservationRecord) => reservationRecord);
+    },
+
+    readerMutation: async (args) => {
+        const { id, input } = args;
+
+        if (id) {
+            const updatedValues = Object.keys(input)
+                .map((key) => `${key} = '${input[key]}'`)
+                .join(",");
+
+            return makeQuery(
+                `UPDATE test.reader SET ${updatedValues} WHERE id='${id}'`,
+                (error, rows, resolve, reject) => {
+                    if (error) reject(error);
+                    resolve(rows[0]);
+                }
+            ).then(() => root.reader({ id: id }));
+        }
     },
 };

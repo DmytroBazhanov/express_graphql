@@ -18,6 +18,9 @@ export const makeQuery = async (SQLRequest, callback) => {
     return new Promise((resolve, reject) => {
         connection.query(SQLRequest, (err, rows) => callback(err, rows, resolve, reject));
     })
-        .catch((error) => console.log(error))
+        .catch((error) => {
+            console.log(error);
+            return error;
+        })
         .finally(() => connection.end());
 };
