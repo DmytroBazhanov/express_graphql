@@ -20,6 +20,9 @@ export const makeQuery = async (SQLRequest, callback) => {
     })
         .catch((error) => {
             console.log(error);
+            if (error.message.includes("Duplicate entry")) {
+                error.message = "Such entry already exist";
+            }
             return error;
         })
         .finally(() => connection.end());
