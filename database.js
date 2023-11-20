@@ -1,12 +1,14 @@
+import "dotenv/config";
 import mySql from "mysql2";
 
 export const openConnection = () => {
+    console.log("Hey", process.env.DB_HOST);
     return mySql.createConnection({
-        host: "127.0.0.1",
-        user: "root",
-        password: "kriegsmarine",
-        port: 3306,
-        database: "test",
+        host: process.env.DB_HOST,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        port: process.env.DB_PORT,
+        database: process.env.DB_DATABASE,
     });
 };
 
