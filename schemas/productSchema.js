@@ -12,6 +12,7 @@ export const productSchema = buildSchema(`
         books: [Book]
         reader(id: String!): Reader
         reservedBook(bookID: String!): [ReservedBooks]
+        readerReservations(readerID: String!): [Reservation]
     }
 
     type Mutation {
@@ -36,6 +37,12 @@ export const productSchema = buildSchema(`
     input ReaderInput {
         name: String
         lastname: String
+    }
+
+    type Reservation {
+        bookID: String
+        readerID: String
+        reservationEndDate: String
     }
 
     type ReservedBooks {
@@ -81,6 +88,26 @@ export const root = {
                 }
             ).then((user) => user);
         }
+    },
+
+    readerReservations: async (args) => {
+        const { readerID } = args;
+
+        return makeQuery(
+            `SELECT * FROM test.reservedBooks WHERE readerID='${readerID}'`,
+            (error, rows, resolve, reject) => {
+                if (error) reject(error);
+
+                const result = rows.map((record) => {
+                    return {
+                        ...record,
+                        reservationEndDate: dateToString(new Date(record.reservationEndDate)),
+                    };
+                });
+
+                resolve(result);
+            }
+        ).then((records) => records);
     },
 
     reservedBook: async (args) => {
