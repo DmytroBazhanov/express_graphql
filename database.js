@@ -2,7 +2,6 @@ import "dotenv/config";
 import mySql from "mysql2";
 
 export const openConnection = () => {
-    console.log("Hey", process.env.DB_HOST);
     return mySql.createConnection({
         host: process.env.DB_HOST,
         user: process.env.DB_USER,
