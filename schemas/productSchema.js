@@ -150,7 +150,7 @@ export const root = {
             bookFields: ["id"],
         });
 
-        let maxDate = null;
+        let maxDate = Date.now();
         presentReservations.forEach((reservation) => {
             if (reservation.reservationEndDate > maxDate || maxDate === null)
                 maxDate = reservation.reservationEndDate;
@@ -159,8 +159,10 @@ export const root = {
         if (
             date > Number(new Date(maxDate).getTime()) + 604800000 ||
             date <= Number(new Date(maxDate).getTime())
-        )
+        ) {
             throw new Error("Innapropriate date");
+        }
+            
 
         const returnDate = dateToString(new Date(Number(date)));
 
